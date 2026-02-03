@@ -7,6 +7,7 @@ export default function ProposalPage() {
     const router = useRouter();
     const [noPosition, setNoPosition] = useState({ x: 0, y: 0 });
     const [hearts, setHearts] = useState<{ id: number; left: number; top: number; delay: number }[]>([]);
+    const [showMessage, setShowMessage] = useState(false);
 
     useEffect(() => {
         // Create floating hearts
@@ -23,14 +24,29 @@ export default function ProposalPage() {
         router.push('/celebration');
     };
 
-    const handleNoHover = () => {
+    const moveNoButton = () => {
         // Move the No button to a random position
-        const maxX = window.innerWidth - 200;
-        const maxY = window.innerHeight - 100;
+        const maxX = window.innerWidth - 150;
+        const maxY = window.innerHeight - 80;
         setNoPosition({
-            x: Math.random() * maxX,
-            y: Math.random() * maxY,
+            x: Math.max(20, Math.random() * maxX),
+            y: Math.max(100, Math.random() * maxY),
         });
+    };
+
+    const handleNoHover = () => {
+        moveNoButton();
+    };
+
+    const handleNoClick = () => {
+        // Show message on mobile
+        setShowMessage(true);
+        moveNoButton();
+
+        // Hide message after 2 seconds
+        setTimeout(() => {
+            setShowMessage(false);
+        }, 2000);
     };
 
     return (
@@ -48,6 +64,28 @@ export default function ProposalPage() {
             }}>
                 💝 To:
             </div>
+
+            {/* Message popup - Ha bol de yaar */}
+            {showMessage && (
+                <div style={{
+                    position: 'fixed',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'linear-gradient(135deg, #ff6b6b, #ff8fab)',
+                    color: 'white',
+                    padding: '20px 40px',
+                    borderRadius: '20px',
+                    fontSize: '1.8em',
+                    fontWeight: 'bold',
+                    zIndex: 10000,
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                    animation: 'bounceIn 0.5s ease',
+                    textAlign: 'center',
+                }}>
+                    Ha bol de yaar! 😜💕
+                </div>
+            )}
 
             {/* Floating hearts background */}
             {hearts.map((heart) => (
@@ -84,6 +122,8 @@ export default function ProposalPage() {
                 <button
                     className="no-btn"
                     onMouseEnter={handleNoHover}
+                    onClick={handleNoClick}
+                    onTouchStart={handleNoClick}
                     style={{
                         left: noPosition.x || 'auto',
                         top: noPosition.y || 'auto',
