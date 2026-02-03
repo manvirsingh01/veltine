@@ -6,10 +6,16 @@ import { useState, useEffect, useRef } from 'react';
 export default function CelebrationPage() {
     const router = useRouter();
     const [thought, setThought] = useState('');
+    const [sending, setSending] = useState(false);
+    const [selectedReaction, setSelectedReaction] = useState('');
+    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [fireworks, setFireworks] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
     const [fallingHearts, setFallingHearts] = useState<{ id: number; left: number; delay: number; duration: number }[]>([]);
     const [musicNotes, setMusicNotes] = useState<{ id: number; left: number; top: number; delay: number }[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const reactions = ['😍', '🥰', '💕', '💖', '❤️', '😘', '🤗', '💝'];
 
     useEffect(() => {
         // Create falling hearts
@@ -42,7 +48,6 @@ export default function CelebrationPage() {
             setFireworks(prev => [...prev.slice(-10), newFirework]);
         }, 800);
 
-        // Try to play celebration sound (browser may block autoplay)
         try {
             audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleZxgMTFbkbiyqJxzXGFnfIWHiISChIWJi4qHhIGBgYODhIOCgYCAgICAgA==');
             audioRef.current.volume = 0.3;
@@ -59,10 +64,62 @@ export default function CelebrationPage() {
         };
     }, []);
 
-    const handleSubmit = () => {
-        if (thought.trim()) {
-            // Store thought and navigate
-            sessionStorage.setItem('valentineThought', thought);
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setUploadedImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if ((thought.trim() || selectedReaction || uploadedImage) && !sending) {
+            setSending(true);
+
+            // Build message with reaction and image info
+            let fullMessage = '';
+            if (selectedReaction) {
+                fullMessage += `Reaction: ${selectedReaction}\n`;
+            }
+            if (thought.trim()) {
+                fullMessage += `Message: "${thought}"\n`;
+            }
+            if (uploadedImage) {
+                fullMessage += `📷 Lucky also sent an image with her message!\n`;
+            }
+
+            // Send email notification using Web3Forms
+            try {
+                const formData = new FormData();
+                formData.append("access_key", "0db39453-de27-4613-be7a-4652f4352a43");
+                formData.append("subject", `💝 Lucky replied to your Valentine! ${selectedReaction || '❤️'}`);
+                formData.append("from_name", "Valentine App - Lucky");
+                formData.append("name", "Lucky");
+                formData.append("message", fullMessage || "Lucky said YES! 💕");
+
+                const response = await fetch("https://api.web3forms.com/submit", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('Email sent successfully! 💕');
+                }
+            } catch (error) {
+                console.log('Email notification error:', error);
+            }
+
+            // Store data and navigate
+            sessionStorage.setItem('valentineThought', thought || selectedReaction || '💕');
+            sessionStorage.setItem('valentineReaction', selectedReaction);
+            if (uploadedImage) {
+                sessionStorage.setItem('valentineImage', uploadedImage);
+            }
             router.push('/thankyou');
         }
     };
@@ -131,8 +188,8 @@ export default function CelebrationPage() {
 
             <p style={{
                 color: 'white',
-                fontSize: '1.5em',
-                marginBottom: '30px',
+                fontSize: '1.3em',
+                marginBottom: '20px',
                 textShadow: '2px 2px 10px rgba(0,0,0,0.3)',
                 zIndex: 10
             }}>
@@ -147,8 +204,94 @@ export default function CelebrationPage() {
                     marginBottom: '15px',
                     textShadow: '1px 1px 5px rgba(0,0,0,0.3)'
                 }}>
-                    Share your thoughts with me 💭
+                    Share your reaction with me 💭
                 </p>
+
+                {/* Reaction picker */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    marginBottom: '15px',
+                    flexWrap: 'wrap'
+                }}>
+                    {reactions.map((emoji) => (
+                        <button
+                            key={emoji}
+                            onClick={() => setSelectedReaction(selectedReaction === emoji ? '' : emoji)}
+                            style={{
+                                fontSize: '2em',
+                                background: selectedReaction === emoji ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)',
+                                border: selectedReaction === emoji ? '3px solid white' : '2px solid rgba(255,255,255,0.3)',
+                                borderRadius: '50%',
+                                width: '50px',
+                                height: '50px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                transform: selectedReaction === emoji ? 'scale(1.2)' : 'scale(1)',
+                            }}
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Image upload */}
+                <div style={{ marginBottom: '15px' }}>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={handleImageUpload}
+                        style={{ display: 'none' }}
+                    />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            border: '2px dashed rgba(255,255,255,0.5)',
+                            borderRadius: '15px',
+                            padding: '10px 20px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '1em',
+                            transition: 'all 0.2s ease',
+                        }}
+                    >
+                        📷 Add a Photo
+                    </button>
+                    {uploadedImage && (
+                        <div style={{ marginTop: '10px' }}>
+                            <img
+                                src={uploadedImage}
+                                alt="Uploaded"
+                                style={{
+                                    maxWidth: '150px',
+                                    maxHeight: '150px',
+                                    borderRadius: '10px',
+                                    border: '3px solid white',
+                                }}
+                            />
+                            <button
+                                onClick={() => setUploadedImage(null)}
+                                style={{
+                                    display: 'block',
+                                    margin: '5px auto',
+                                    background: 'rgba(0,0,0,0.3)',
+                                    border: 'none',
+                                    color: 'white',
+                                    padding: '5px 10px',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8em'
+                                }}
+                            >
+                                ✕ Remove
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 <input
                     type="text"
                     className="thought-input"
@@ -157,8 +300,13 @@ export default function CelebrationPage() {
                     onChange={(e) => setThought(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
                 />
-                <button className="submit-btn" onClick={handleSubmit}>
-                    Send with Love 💌
+                <button
+                    className="submit-btn"
+                    onClick={handleSubmit}
+                    disabled={sending}
+                    style={{ opacity: sending ? 0.7 : 1 }}
+                >
+                    {sending ? 'Sending... 💕' : 'Send with Love 💌'}
                 </button>
             </div>
 

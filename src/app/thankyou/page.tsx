@@ -4,13 +4,20 @@ import { useEffect, useState } from 'react';
 
 export default function ThankYouPage() {
     const [thought, setThought] = useState('');
+    const [reaction, setReaction] = useState('');
+    const [image, setImage] = useState<string | null>(null);
     const [hearts, setHearts] = useState<{ id: number; left: number; delay: number; duration: number }[]>([]);
     const [sparkles, setSparkles] = useState<{ id: number; left: number; top: number; delay: number }[]>([]);
 
     useEffect(() => {
-        // Get the thought from session storage
-        const savedThought = sessionStorage.getItem('valentineThought') || 'My heart belongs to you 💕';
+        // Get data from session storage
+        const savedThought = sessionStorage.getItem('valentineThought') || 'I love you too! 💕';
+        const savedReaction = sessionStorage.getItem('valentineReaction') || '';
+        const savedImage = sessionStorage.getItem('valentineImage') || null;
+
         setThought(savedThought);
+        setReaction(savedReaction);
+        setImage(savedImage);
 
         // Create falling hearts
         const newHearts = Array.from({ length: 20 }, (_, i) => ({
@@ -77,6 +84,37 @@ export default function ThankYouPage() {
             }}>
                 🌹💕🌹
             </div>
+
+            {/* Reaction display */}
+            {reaction && (
+                <div style={{
+                    fontSize: '4em',
+                    marginBottom: '15px',
+                    animation: 'bounceIn 1s ease'
+                }}>
+                    {reaction}
+                </div>
+            )}
+
+            {/* Image display */}
+            {image && (
+                <div style={{
+                    marginBottom: '20px',
+                    zIndex: 10
+                }}>
+                    <img
+                        src={image}
+                        alt="Lucky's photo"
+                        style={{
+                            maxWidth: '200px',
+                            maxHeight: '200px',
+                            borderRadius: '15px',
+                            border: '4px solid white',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                        }}
+                    />
+                </div>
+            )}
 
             <div className="thought-display">
                 <p style={{ fontSize: '0.8em', marginBottom: '10px', opacity: 0.8 }}>
