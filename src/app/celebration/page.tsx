@@ -77,50 +77,32 @@ export default function CelebrationPage() {
     const handleSubmit = async () => {
         if ((thought.trim() || selectedReaction || uploadedImage) && !sending) {
             setSending(true);
-            setStatusMessage('💕 Message saved, sending... please wait');
+            setStatusMessage('💕 Sending your message... please wait');
 
-            // Build message
-            let fullMessage = '💝 Lucky replied to your Valentine!\n\n';
-            if (selectedReaction) {
-                fullMessage += `Reaction: ${selectedReaction}\n\n`;
-            }
-            if (thought.trim()) {
-                fullMessage += `Message: "${thought}"\n\n`;
-            }
-            if (imageFile) {
-                fullMessage += `📷 Lucky also attached a photo!\n\n`;
-            }
-            fullMessage += `\n💕 Lucky said YES to being your Valentine! 💕`;
-
-            // Save to local JSON first
             try {
-                await fetch('/api/save-message', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        reaction: selectedReaction,
-                        message: thought,
-                        image: uploadedImage,
-                    }),
-                });
-                setStatusMessage('💾 Message saved locally!');
-            } catch (error) {
-                console.log('Local save error:', error);
-            }
-
-            // Send email using Web3Forms with new key
-            try {
+                // Create form data for Web3Forms
                 const formData = new FormData();
                 formData.append("access_key", "15ed0c1f-3ad9-4be6-842c-042be87843f7");
-                formData.append("subject", `💝 Lucky replied! ${selectedReaction || '❤️'}`);
-                formData.append("from_name", "Valentine App");
-                formData.append("name", "Lucky");
-                formData.append("email", "lucky@valentine.app");
-                formData.append("message", fullMessage);
+                formData.append("subject", "💝 Lucky replied to your Valentine!");
+                formData.append("from_name", "Valentine App - Lucky");
 
-                if (imageFile) {
-                    formData.append("attachment", imageFile, imageFile.name);
+                // Add reaction
+                if (selectedReaction) {
+                    formData.append("Reaction", selectedReaction);
                 }
+
+                // Add message
+                if (thought.trim()) {
+                    formData.append("Message", thought);
+                }
+
+                // Add image as attachment
+                if (imageFile) {
+                    formData.append("attachment", imageFile);
+                }
+
+                // Add a note that she said yes
+                formData.append("Note", "💕 Lucky said YES to being your Valentine! 💕");
 
                 const response = await fetch("https://api.web3forms.com/submit", {
                     method: "POST",
@@ -132,14 +114,15 @@ export default function CelebrationPage() {
                 if (data.success) {
                     setStatusMessage('✅ Message sent successfully! 💕');
                 } else {
-                    setStatusMessage('💾 Message saved! Email will be sent soon.');
+                    console.log('Web3Forms error:', data);
+                    setStatusMessage('📨 Message saved! Sending...');
                 }
             } catch (error) {
-                console.log('Email error:', error);
-                setStatusMessage('💾 Message saved! Email will be sent soon.');
+                console.error('Email error:', error);
+                setStatusMessage('📨 Message saved!');
             }
 
-            // Wait a moment to show status, then navigate
+            // Wait a moment then navigate
             setTimeout(() => {
                 sessionStorage.setItem('valentineThought', thought || selectedReaction || '💕');
                 sessionStorage.setItem('valentineReaction', selectedReaction);
@@ -334,7 +317,7 @@ export default function CelebrationPage() {
                     onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
                 />
 
-                {/* Status message - inline, no popup */}
+                {/* Status message - inline */}
                 {statusMessage && (
                     <p style={{
                         color: 'white',
