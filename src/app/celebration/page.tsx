@@ -10,11 +10,13 @@ export default function CelebrationPage() {
     const [statusMessage, setStatusMessage] = useState('');
     const [selectedReaction, setSelectedReaction] = useState('');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [showCamera, setShowCamera] = useState(false);
     const [fireworks, setFireworks] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
     const [fallingHearts, setFallingHearts] = useState<{ id: number; left: number; delay: number; duration: number }[]>([]);
     const [musicNotes, setMusicNotes] = useState<{ id: number; left: number; top: number; delay: number }[]>([]);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     const reactions = ['😍', '🥰', '💕', '💖', '❤️', '😘', '🤗', '💝'];
 
@@ -60,11 +62,56 @@ export default function CelebrationPage() {
         }
     };
 
+    // Open camera
+    const openCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user' }
+            });
+            streamRef.current = stream;
+            setShowCamera(true);
+
+            // Wait for modal to render, then set video source
+            setTimeout(() => {
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Camera error:', error);
+            setStatusMessage('❌ Camera not available. Try Browse Gallery.');
+            setTimeout(() => setStatusMessage(''), 3000);
+        }
+    };
+
+    // Take photo from camera
+    const takePhoto = () => {
+        if (videoRef.current) {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(videoRef.current, 0, 0);
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                setUploadedImage(imageData);
+            }
+        }
+        closeCamera();
+    };
+
+    // Close camera
+    const closeCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        setShowCamera(false);
+    };
+
     const uploadToImgBB = async (base64Image: string): Promise<string | null> => {
         try {
-            // Remove data URL prefix
             const base64Data = base64Image.split(',')[1];
-
             const formData = new FormData();
             formData.append('key', '666fb0955cdaa1276ec3e3a61a965011');
             formData.append('image', base64Data);
@@ -87,7 +134,6 @@ export default function CelebrationPage() {
     };
 
     const handleSubmit = async () => {
-        // Require both message and emoji
         if (!thought.trim()) {
             setStatusMessage('❌ Please type a message!');
             return;
@@ -103,7 +149,6 @@ export default function CelebrationPage() {
 
             let imageUrl = null;
 
-            // Upload image to imgBB if exists
             if (uploadedImage) {
                 setStatusMessage('📷 Uploading photo...');
                 imageUrl = await uploadToImgBB(uploadedImage);
@@ -113,7 +158,6 @@ export default function CelebrationPage() {
             }
 
             try {
-                // Build message text
                 let messageText = '💝 LUCKY REPLIED TO YOUR VALENTINE! 💝\n\n';
                 messageText += '-----------------------------------\n\n';
 
@@ -133,7 +177,6 @@ export default function CelebrationPage() {
                 messageText += '💕 Lucky said YES to being your Valentine! 💕\n';
                 messageText += `Sent at: ${new Date().toLocaleString()}`;
 
-                // Send email via Web3Forms
                 const response = await fetch('https://api.web3forms.com/submit', {
                     method: 'POST',
                     headers: {
@@ -163,7 +206,6 @@ export default function CelebrationPage() {
                 setStatusMessage('📨 Message saved!');
             }
 
-            // Navigate after delay
             setTimeout(() => {
                 sessionStorage.setItem('valentineThought', thought || selectedReaction || '💕');
                 sessionStorage.setItem('valentineReaction', selectedReaction);
@@ -179,6 +221,67 @@ export default function CelebrationPage() {
         <div className="celebration-container" style={{
             background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8fab 30%, #fb6f92 60%, #e63946 100%)'
         }}>
+            {/* Camera Modal */}
+            {showCamera && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.9)',
+                    zIndex: 10000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px',
+                }}>
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{
+                            maxWidth: '100%',
+                            maxHeight: '60vh',
+                            borderRadius: '20px',
+                            border: '4px solid white',
+                        }}
+                    />
+                    <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
+                        <button
+                            onClick={takePhoto}
+                            style={{
+                                background: 'linear-gradient(135deg, #ff6b6b, #ff8fab)',
+                                border: '3px solid white',
+                                borderRadius: '50%',
+                                width: '70px',
+                                height: '70px',
+                                cursor: 'pointer',
+                                fontSize: '28px',
+                            }}
+                        >
+                            📸
+                        </button>
+                        <button
+                            onClick={closeCamera}
+                            style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                border: '2px solid white',
+                                borderRadius: '15px',
+                                padding: '15px 25px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '1em',
+                            }}
+                        >
+                            ✕ Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {fireworks.map((fw) => (
                 <div key={fw.id} className="firework" style={{ left: `${fw.x}%`, top: `${fw.y}%`, backgroundColor: fw.color, boxShadow: `0 0 20px ${fw.color}, 0 0 40px ${fw.color}` }} />
             ))}
@@ -232,15 +335,52 @@ export default function CelebrationPage() {
                 </div>
 
                 <div style={{ marginBottom: '15px' }}>
+                    <p style={{ color: 'white', fontSize: '1em', marginBottom: '10px', opacity: 0.9 }}>
+                        📸 Add your photo with reaction:
+                    </p>
                     <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
-                    <button type="button" onClick={() => fileInputRef.current?.click()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.5)', borderRadius: '15px', padding: '10px 20px', color: 'white', cursor: 'pointer', fontSize: '1em' }}>
-                        📷 Add a Photo
-                    </button>
+
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={openCamera}
+                            style={{
+                                background: 'linear-gradient(135deg, #ff6b6b, #ff8fab)',
+                                border: '2px solid white',
+                                borderRadius: '15px',
+                                padding: '12px 20px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '1em',
+                                fontWeight: 'bold',
+                                boxShadow: '0 5px 15px rgba(0,0,0,0.2)',
+                            }}
+                        >
+                            📷 Take Photo
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                border: '2px dashed rgba(255,255,255,0.5)',
+                                borderRadius: '15px',
+                                padding: '12px 20px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontSize: '1em'
+                            }}
+                        >
+                            🖼️ Browse Gallery
+                        </button>
+                    </div>
+
                     {uploadedImage && (
-                        <div style={{ marginTop: '10px' }}>
-                            <img src={uploadedImage} alt="Uploaded" style={{ maxWidth: '150px', maxHeight: '150px', borderRadius: '10px', border: '3px solid white' }} />
-                            <button type="button" onClick={() => setUploadedImage(null)} style={{ display: 'block', margin: '5px auto', background: 'rgba(0,0,0,0.3)', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8em' }}>
-                                ✕ Remove
+                        <div style={{ marginTop: '15px' }}>
+                            <img src={uploadedImage} alt="Your photo" style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '15px', border: '4px solid white', boxShadow: '0 5px 20px rgba(0,0,0,0.3)' }} />
+                            <button type="button" onClick={() => setUploadedImage(null)} style={{ display: 'block', margin: '10px auto', background: 'rgba(0,0,0,0.4)', border: 'none', color: 'white', padding: '8px 15px', borderRadius: '10px', cursor: 'pointer', fontSize: '0.9em' }}>
+                                ✕ Remove Photo
                             </button>
                         </div>
                     )}
