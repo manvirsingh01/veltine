@@ -19,7 +19,6 @@ export default function CelebrationPage() {
     const reactions = ['😍', '🥰', '💕', '💖', '❤️', '😘', '🤗', '💝'];
 
     useEffect(() => {
-        // Create falling hearts
         const hearts = Array.from({ length: 30 }, (_, i) => ({
             id: i,
             left: Math.random() * 100,
@@ -28,7 +27,6 @@ export default function CelebrationPage() {
         }));
         setFallingHearts(hearts);
 
-        // Create music notes
         const notes = Array.from({ length: 10 }, (_, i) => ({
             id: i,
             left: Math.random() * 100,
@@ -37,7 +35,6 @@ export default function CelebrationPage() {
         }));
         setMusicNotes(notes);
 
-        // Create fireworks periodically
         const fireworkInterval = setInterval(() => {
             const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6bd6', '#ff9f45'];
             const newFirework = {
@@ -52,7 +49,6 @@ export default function CelebrationPage() {
         try {
             audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleZxgMTFbkbiyqJxzXGFnfIWHiISChIWJi4qHhIGBgYODhIOCgYCAgICAgA==');
             audioRef.current.volume = 0.3;
-            audioRef.current.loop = true;
         } catch {
             // Audio not supported
         }
@@ -68,7 +64,7 @@ export default function CelebrationPage() {
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setImageFile(file); // Store the actual file for email attachment
+            setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setUploadedImage(reader.result as string);
@@ -81,29 +77,35 @@ export default function CelebrationPage() {
         if ((thought.trim() || selectedReaction || uploadedImage) && !sending) {
             setSending(true);
 
-            // Build message with reaction
-            let fullMessage = '';
+            // Build message
+            let fullMessage = '💝 Lucky replied to your Valentine!\n\n';
             if (selectedReaction) {
                 fullMessage += `Reaction: ${selectedReaction}\n\n`;
             }
             if (thought.trim()) {
                 fullMessage += `Message: "${thought}"\n\n`;
             }
+            if (imageFile) {
+                fullMessage += `📷 Lucky also attached a photo!\n\n`;
+            }
             fullMessage += `\n💕 Lucky said YES to being your Valentine! 💕`;
 
-            // Send email notification using Web3Forms with image attachment
+            // Send email using Web3Forms
             try {
                 const formData = new FormData();
                 formData.append("access_key", "0db39453-de27-4613-be7a-4652f4352a43");
-                formData.append("subject", `💝 Lucky replied to your Valentine! ${selectedReaction || '❤️'}`);
-                formData.append("from_name", "Valentine App - Lucky");
+                formData.append("subject", `💝 Lucky replied! ${selectedReaction || '❤️'}`);
+                formData.append("from_name", "Valentine App");
                 formData.append("name", "Lucky");
-                formData.append("message", fullMessage || "Lucky said YES! 💕");
+                formData.append("email", "lucky@valentine.app");
+                formData.append("message", fullMessage);
 
-                // Attach the image if uploaded
+                // Attach image if uploaded
                 if (imageFile) {
-                    formData.append("attachment", imageFile);
+                    formData.append("attachment", imageFile, imageFile.name);
                 }
+
+                console.log('Sending email...');
 
                 const response = await fetch("https://api.web3forms.com/submit", {
                     method: "POST",
@@ -111,12 +113,18 @@ export default function CelebrationPage() {
                 });
 
                 const data = await response.json();
+                console.log('Web3Forms response:', data);
 
                 if (data.success) {
-                    console.log('Email with image sent successfully! 💕');
+                    console.log('✅ Email sent successfully!');
+                    alert('Message sent! 💕');
+                } else {
+                    console.log('❌ Email failed:', data.message);
+                    alert('Message saved! (Email delivery pending)');
                 }
             } catch (error) {
-                console.log('Email notification error:', error);
+                console.error('Email error:', error);
+                alert('Message saved! 💕');
             }
 
             // Store data and navigate
@@ -223,6 +231,7 @@ export default function CelebrationPage() {
                     {reactions.map((emoji) => (
                         <button
                             key={emoji}
+                            type="button"
                             onClick={() => setSelectedReaction(selectedReaction === emoji ? '' : emoji)}
                             style={{
                                 fontSize: '2em',
@@ -251,6 +260,7 @@ export default function CelebrationPage() {
                         style={{ display: 'none' }}
                     />
                     <button
+                        type="button"
                         onClick={() => fileInputRef.current?.click()}
                         style={{
                             background: 'rgba(255,255,255,0.2)',
@@ -263,7 +273,7 @@ export default function CelebrationPage() {
                             transition: 'all 0.2s ease',
                         }}
                     >
-                        📷 Add a Photo (will be sent to email!)
+                        📷 Add a Photo
                     </button>
                     {uploadedImage && (
                         <div style={{ marginTop: '10px' }}>
@@ -278,6 +288,7 @@ export default function CelebrationPage() {
                                 }}
                             />
                             <button
+                                type="button"
                                 onClick={() => {
                                     setUploadedImage(null);
                                     setImageFile(null);
@@ -309,6 +320,7 @@ export default function CelebrationPage() {
                     onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
                 />
                 <button
+                    type="button"
                     className="submit-btn"
                     onClick={handleSubmit}
                     disabled={sending}
