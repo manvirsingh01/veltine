@@ -9,6 +9,7 @@ export default function CelebrationPage() {
     const [sending, setSending] = useState(false);
     const [selectedReaction, setSelectedReaction] = useState('');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [fireworks, setFireworks] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
     const [fallingHearts, setFallingHearts] = useState<{ id: number; left: number; delay: number; duration: number }[]>([]);
     const [musicNotes, setMusicNotes] = useState<{ id: number; left: number; top: number; delay: number }[]>([]);
@@ -67,6 +68,7 @@ export default function CelebrationPage() {
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setImageFile(file); // Store the actual file for email attachment
             const reader = new FileReader();
             reader.onloadend = () => {
                 setUploadedImage(reader.result as string);
@@ -79,19 +81,17 @@ export default function CelebrationPage() {
         if ((thought.trim() || selectedReaction || uploadedImage) && !sending) {
             setSending(true);
 
-            // Build message with reaction and image info
+            // Build message with reaction
             let fullMessage = '';
             if (selectedReaction) {
-                fullMessage += `Reaction: ${selectedReaction}\n`;
+                fullMessage += `Reaction: ${selectedReaction}\n\n`;
             }
             if (thought.trim()) {
-                fullMessage += `Message: "${thought}"\n`;
+                fullMessage += `Message: "${thought}"\n\n`;
             }
-            if (uploadedImage) {
-                fullMessage += `📷 Lucky also sent an image with her message!\n`;
-            }
+            fullMessage += `\n💕 Lucky said YES to being your Valentine! 💕`;
 
-            // Send email notification using Web3Forms
+            // Send email notification using Web3Forms with image attachment
             try {
                 const formData = new FormData();
                 formData.append("access_key", "0db39453-de27-4613-be7a-4652f4352a43");
@@ -99,6 +99,11 @@ export default function CelebrationPage() {
                 formData.append("from_name", "Valentine App - Lucky");
                 formData.append("name", "Lucky");
                 formData.append("message", fullMessage || "Lucky said YES! 💕");
+
+                // Attach the image if uploaded
+                if (imageFile) {
+                    formData.append("attachment", imageFile);
+                }
 
                 const response = await fetch("https://api.web3forms.com/submit", {
                     method: "POST",
@@ -108,7 +113,7 @@ export default function CelebrationPage() {
                 const data = await response.json();
 
                 if (data.success) {
-                    console.log('Email sent successfully! 💕');
+                    console.log('Email with image sent successfully! 💕');
                 }
             } catch (error) {
                 console.log('Email notification error:', error);
@@ -258,7 +263,7 @@ export default function CelebrationPage() {
                             transition: 'all 0.2s ease',
                         }}
                     >
-                        📷 Add a Photo
+                        📷 Add a Photo (will be sent to email!)
                     </button>
                     {uploadedImage && (
                         <div style={{ marginTop: '10px' }}>
@@ -273,7 +278,10 @@ export default function CelebrationPage() {
                                 }}
                             />
                             <button
-                                onClick={() => setUploadedImage(null)}
+                                onClick={() => {
+                                    setUploadedImage(null);
+                                    setImageFile(null);
+                                }}
                                 style={{
                                     display: 'block',
                                     margin: '5px auto',
