@@ -46,19 +46,7 @@ export default function CelebrationPage() {
             setFireworks(prev => [...prev.slice(-10), newFirework]);
         }, 800);
 
-        try {
-            audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleZxgMTFbkbiyqJxzXGFnfIWHiISChIWJi4qHhIGBgYODhIOCgYCAgICAgA==');
-            audioRef.current.volume = 0.3;
-        } catch {
-            // Audio not supported
-        }
-
-        return () => {
-            clearInterval(fireworkInterval);
-            if (audioRef.current) {
-                audioRef.current.pause();
-            }
-        };
+        return () => clearInterval(fireworkInterval);
     }, []);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,64 +60,100 @@ export default function CelebrationPage() {
         }
     };
 
+    const uploadToImgBB = async (base64Image: string): Promise<string | null> => {
+        try {
+            // Remove data URL prefix
+            const base64Data = base64Image.split(',')[1];
+
+            const formData = new FormData();
+            formData.append('key', '666fb0955cdaa1276ec3e3a61a965011');
+            formData.append('image', base64Data);
+            formData.append('name', `lucky_valentine_${Date.now()}`);
+
+            const response = await fetch('https://api.imgbb.com/1/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                return data.data.url;
+            }
+            return null;
+        } catch (error) {
+            console.error('imgBB upload error:', error);
+            return null;
+        }
+    };
+
     const handleSubmit = async () => {
         if ((thought.trim() || selectedReaction || uploadedImage) && !sending) {
             setSending(true);
             setStatusMessage('💕 Sending your message... please wait');
 
+            let imageUrl = null;
+
+            // Upload image to imgBB if exists
+            if (uploadedImage) {
+                setStatusMessage('📷 Uploading photo...');
+                imageUrl = await uploadToImgBB(uploadedImage);
+                if (imageUrl) {
+                    setStatusMessage('✅ Photo uploaded! Sending email...');
+                }
+            }
+
             try {
-                // Build the email body
-                let messageBody = '💝 LUCKY REPLIED TO YOUR VALENTINE! 💝\n\n';
-                messageBody += '-----------------------------------\n\n';
+                // Build message text
+                let messageText = '💝 LUCKY REPLIED TO YOUR VALENTINE! 💝\n\n';
+                messageText += '-----------------------------------\n\n';
 
                 if (selectedReaction) {
-                    messageBody += `REACTION: ${selectedReaction}\n\n`;
+                    messageText += `REACTION: ${selectedReaction}\n\n`;
                 }
 
                 if (thought.trim()) {
-                    messageBody += `MESSAGE: "${thought}"\n\n`;
+                    messageText += `MESSAGE: "${thought}"\n\n`;
                 }
 
-                if (uploadedImage) {
-                    messageBody += `📷 PHOTO: Lucky attached a photo! (Image data too large for email, but she sent one!)\n\n`;
+                if (imageUrl) {
+                    messageText += `📷 PHOTO: ${imageUrl}\n\n`;
                 }
 
-                messageBody += '-----------------------------------\n';
-                messageBody += '💕 Lucky said YES to being your Valentine! 💕\n';
-                messageBody += `Sent at: ${new Date().toLocaleString()}`;
+                messageText += '-----------------------------------\n';
+                messageText += '💕 Lucky said YES to being your Valentine! 💕\n';
+                messageText += `Sent at: ${new Date().toLocaleString()}`;
 
-                // Send using JSON format
-                const response = await fetch("https://api.web3forms.com/submit", {
-                    method: "POST",
+                // Send email via Web3Forms
+                const response = await fetch('https://api.web3forms.com/submit', {
+                    method: 'POST',
                     headers: {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        access_key: "15ed0c1f-3ad9-4be6-842c-042be87843f7",
+                        access_key: '15ed0c1f-3ad9-4be6-842c-042be87843f7',
                         subject: `💝 Lucky replied! ${selectedReaction || '❤️'} - Valentine App`,
-                        from_name: "Valentine App",
-                        name: "Lucky",
-                        email: "lucky@valentine.app",
-                        message: messageBody
+                        from_name: 'Valentine App',
+                        name: 'Lucky',
+                        email: 'lucky@valentine.app',
+                        message: messageText
                     })
                 });
 
                 const data = await response.json();
-                console.log('Web3Forms Response:', data);
+                console.log('Email Response:', data);
 
                 if (data.success) {
                     setStatusMessage('✅ Message sent successfully! 💕');
                 } else {
-                    setStatusMessage('📨 Message saved! Will be sent soon.');
-                    console.log('Error:', data);
+                    setStatusMessage('📨 Message saved!');
                 }
             } catch (error) {
                 console.error('Email error:', error);
                 setStatusMessage('📨 Message saved!');
             }
 
-            // Wait then navigate
+            // Navigate after delay
             setTimeout(() => {
                 sessionStorage.setItem('valentineThought', thought || selectedReaction || '💕');
                 sessionStorage.setItem('valentineReaction', selectedReaction);
@@ -145,93 +169,36 @@ export default function CelebrationPage() {
         <div className="celebration-container" style={{
             background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8fab 30%, #fb6f92 60%, #e63946 100%)'
         }}>
-            {/* Fireworks */}
             {fireworks.map((fw) => (
-                <div
-                    key={fw.id}
-                    className="firework"
-                    style={{
-                        left: `${fw.x}%`,
-                        top: `${fw.y}%`,
-                        backgroundColor: fw.color,
-                        boxShadow: `0 0 20px ${fw.color}, 0 0 40px ${fw.color}`,
-                    }}
-                />
+                <div key={fw.id} className="firework" style={{ left: `${fw.x}%`, top: `${fw.y}%`, backgroundColor: fw.color, boxShadow: `0 0 20px ${fw.color}, 0 0 40px ${fw.color}` }} />
             ))}
 
-            {/* Falling hearts */}
             {fallingHearts.map((heart) => (
-                <div
-                    key={heart.id}
-                    className="falling-heart"
-                    style={{
-                        left: `${heart.left}%`,
-                        animationDelay: `${heart.delay}s`,
-                        animationDuration: `${heart.duration}s`,
-                    }}
-                >
+                <div key={heart.id} className="falling-heart" style={{ left: `${heart.left}%`, animationDelay: `${heart.delay}s`, animationDuration: `${heart.duration}s` }}>
                     {['❤️', '💕', '💖', '💗', '💝'][Math.floor(Math.random() * 5)]}
                 </div>
             ))}
 
-            {/* Music notes */}
             {musicNotes.map((note) => (
-                <div
-                    key={note.id}
-                    className="music-note"
-                    style={{
-                        left: `${note.left}%`,
-                        top: `${note.top}%`,
-                        animationDelay: `${note.delay}s`,
-                    }}
-                >
+                <div key={note.id} className="music-note" style={{ left: `${note.left}%`, top: `${note.top}%`, animationDelay: `${note.delay}s` }}>
                     {['🎵', '🎶', '🎼', '♬'][Math.floor(Math.random() * 4)]}
                 </div>
             ))}
 
-            {/* Celebration content */}
-            <h1 className="celebration-title">
-                🎉 Yay! You Said Yes! 🎉
-            </h1>
+            <h1 className="celebration-title">🎉 Yay! You Said Yes! 🎉</h1>
 
-            <div style={{
-                fontSize: '4em',
-                animation: 'pulse 1s infinite',
-                marginBottom: '20px',
-                zIndex: 10
-            }}>
-                💖💖💖
-            </div>
+            <div style={{ fontSize: '4em', animation: 'pulse 1s infinite', marginBottom: '20px', zIndex: 10 }}>💖💖💖</div>
 
-            <p style={{
-                color: 'white',
-                fontSize: '1.3em',
-                marginBottom: '20px',
-                textShadow: '2px 2px 10px rgba(0,0,0,0.3)',
-                zIndex: 10
-            }}>
+            <p style={{ color: 'white', fontSize: '1.3em', marginBottom: '20px', textShadow: '2px 2px 10px rgba(0,0,0,0.3)', zIndex: 10 }}>
                 🎵 Music is playing, hearts are falling! 🎵
             </p>
 
-            {/* Input section */}
             <div className="input-section">
-                <p style={{
-                    color: 'white',
-                    fontSize: '1.2em',
-                    marginBottom: '15px',
-                    textShadow: '1px 1px 5px rgba(0,0,0,0.3)'
-                }}>
+                <p style={{ color: 'white', fontSize: '1.2em', marginBottom: '15px', textShadow: '1px 1px 5px rgba(0,0,0,0.3)' }}>
                     Share your reaction with me 💭
                 </p>
 
-                {/* Reaction picker */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    marginBottom: '15px',
-                    flexWrap: 'wrap'
-                }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '15px', flexWrap: 'wrap' }}>
                     {reactions.map((emoji) => (
                         <button
                             key={emoji}
@@ -254,100 +221,34 @@ export default function CelebrationPage() {
                     ))}
                 </div>
 
-                {/* Image upload */}
                 <div style={{ marginBottom: '15px' }}>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef}
-                        onChange={handleImageUpload}
-                        style={{ display: 'none' }}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{
-                            background: 'rgba(255,255,255,0.2)',
-                            border: '2px dashed rgba(255,255,255,0.5)',
-                            borderRadius: '15px',
-                            padding: '10px 20px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '1em',
-                            transition: 'all 0.2s ease',
-                        }}
-                    >
+                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
+                    <button type="button" onClick={() => fileInputRef.current?.click()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.5)', borderRadius: '15px', padding: '10px 20px', color: 'white', cursor: 'pointer', fontSize: '1em' }}>
                         📷 Add a Photo
                     </button>
                     {uploadedImage && (
                         <div style={{ marginTop: '10px' }}>
-                            <img
-                                src={uploadedImage}
-                                alt="Uploaded"
-                                style={{
-                                    maxWidth: '150px',
-                                    maxHeight: '150px',
-                                    borderRadius: '10px',
-                                    border: '3px solid white',
-                                }}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setUploadedImage(null)}
-                                style={{
-                                    display: 'block',
-                                    margin: '5px auto',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    border: 'none',
-                                    color: 'white',
-                                    padding: '5px 10px',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.8em'
-                                }}
-                            >
+                            <img src={uploadedImage} alt="Uploaded" style={{ maxWidth: '150px', maxHeight: '150px', borderRadius: '10px', border: '3px solid white' }} />
+                            <button type="button" onClick={() => setUploadedImage(null)} style={{ display: 'block', margin: '5px auto', background: 'rgba(0,0,0,0.3)', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8em' }}>
                                 ✕ Remove
                             </button>
                         </div>
                     )}
                 </div>
 
-                <input
-                    type="text"
-                    className="thought-input"
-                    placeholder="Type your special message..."
-                    value={thought}
-                    onChange={(e) => setThought(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-                />
+                <input type="text" className="thought-input" placeholder="Type your special message..." value={thought} onChange={(e) => setThought(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSubmit()} />
 
-                {/* Status message */}
                 {statusMessage && (
-                    <p style={{
-                        color: 'white',
-                        fontSize: '1.1em',
-                        marginTop: '10px',
-                        padding: '10px 20px',
-                        background: 'rgba(255,255,255,0.2)',
-                        borderRadius: '10px',
-                        textAlign: 'center',
-                    }}>
+                    <p style={{ color: 'white', fontSize: '1.1em', marginTop: '10px', padding: '10px 20px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', textAlign: 'center' }}>
                         {statusMessage}
                     </p>
                 )}
 
-                <button
-                    type="button"
-                    className="submit-btn"
-                    onClick={handleSubmit}
-                    disabled={sending}
-                    style={{ opacity: sending ? 0.7 : 1 }}
-                >
+                <button type="button" className="submit-btn" onClick={handleSubmit} disabled={sending} style={{ opacity: sending ? 0.7 : 1 }}>
                     {sending ? 'Sending... 💕' : 'Send with Love 💌'}
                 </button>
             </div>
 
-            {/* Decorations */}
             <div style={{ position: 'absolute', top: '10%', left: '5%', fontSize: '50px', opacity: 0.5 }}>🎊</div>
             <div style={{ position: 'absolute', top: '15%', right: '8%', fontSize: '50px', opacity: 0.5 }}>🎉</div>
             <div style={{ position: 'absolute', bottom: '10%', left: '8%', fontSize: '40px', opacity: 0.5 }}>🌹</div>
