@@ -142,6 +142,10 @@ export default function CelebrationPage() {
             setStatusMessage('❌ Please select an emoji reaction!');
             return;
         }
+        if (!uploadedImage) {
+            setStatusMessage('❌ Please add a photo!');
+            return;
+        }
 
         if (!sending) {
             setSending(true);
