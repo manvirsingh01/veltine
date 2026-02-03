@@ -10,7 +10,6 @@ export default function CelebrationPage() {
     const [statusMessage, setStatusMessage] = useState('');
     const [selectedReaction, setSelectedReaction] = useState('');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-    const [imageFile, setImageFile] = useState<File | null>(null);
     const [fireworks, setFireworks] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
     const [fallingHearts, setFallingHearts] = useState<{ id: number; left: number; delay: number; duration: number }[]>([]);
     const [musicNotes, setMusicNotes] = useState<{ id: number; left: number; top: number; delay: number }[]>([]);
@@ -65,7 +64,6 @@ export default function CelebrationPage() {
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setUploadedImage(reader.result as string);
@@ -80,49 +78,58 @@ export default function CelebrationPage() {
             setStatusMessage('💕 Sending your message... please wait');
 
             try {
-                // Create form data for Web3Forms
-                const formData = new FormData();
-                formData.append("access_key", "15ed0c1f-3ad9-4be6-842c-042be87843f7");
-                formData.append("subject", "💝 Lucky replied to your Valentine!");
-                formData.append("from_name", "Valentine App - Lucky");
+                // Build the email body
+                let messageBody = '💝 LUCKY REPLIED TO YOUR VALENTINE! 💝\n\n';
+                messageBody += '-----------------------------------\n\n';
 
-                // Add reaction
                 if (selectedReaction) {
-                    formData.append("Reaction", selectedReaction);
+                    messageBody += `REACTION: ${selectedReaction}\n\n`;
                 }
 
-                // Add message
                 if (thought.trim()) {
-                    formData.append("Message", thought);
+                    messageBody += `MESSAGE: "${thought}"\n\n`;
                 }
 
-                // Add image as attachment
-                if (imageFile) {
-                    formData.append("attachment", imageFile);
+                if (uploadedImage) {
+                    messageBody += `📷 PHOTO: Lucky attached a photo! (Image data too large for email, but she sent one!)\n\n`;
                 }
 
-                // Add a note that she said yes
-                formData.append("Note", "💕 Lucky said YES to being your Valentine! 💕");
+                messageBody += '-----------------------------------\n';
+                messageBody += '💕 Lucky said YES to being your Valentine! 💕\n';
+                messageBody += `Sent at: ${new Date().toLocaleString()}`;
 
+                // Send using JSON format
                 const response = await fetch("https://api.web3forms.com/submit", {
                     method: "POST",
-                    body: formData
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                        access_key: "15ed0c1f-3ad9-4be6-842c-042be87843f7",
+                        subject: `💝 Lucky replied! ${selectedReaction || '❤️'} - Valentine App`,
+                        from_name: "Valentine App",
+                        name: "Lucky",
+                        email: "lucky@valentine.app",
+                        message: messageBody
+                    })
                 });
 
                 const data = await response.json();
+                console.log('Web3Forms Response:', data);
 
                 if (data.success) {
                     setStatusMessage('✅ Message sent successfully! 💕');
                 } else {
-                    console.log('Web3Forms error:', data);
-                    setStatusMessage('📨 Message saved! Sending...');
+                    setStatusMessage('📨 Message saved! Will be sent soon.');
+                    console.log('Error:', data);
                 }
             } catch (error) {
                 console.error('Email error:', error);
                 setStatusMessage('📨 Message saved!');
             }
 
-            // Wait a moment then navigate
+            // Wait then navigate
             setTimeout(() => {
                 sessionStorage.setItem('valentineThought', thought || selectedReaction || '💕');
                 sessionStorage.setItem('valentineReaction', selectedReaction);
@@ -130,7 +137,7 @@ export default function CelebrationPage() {
                     sessionStorage.setItem('valentineImage', uploadedImage);
                 }
                 router.push('/thankyou');
-            }, 1500);
+            }, 2000);
         }
     };
 
@@ -286,10 +293,7 @@ export default function CelebrationPage() {
                             />
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setUploadedImage(null);
-                                    setImageFile(null);
-                                }}
+                                onClick={() => setUploadedImage(null)}
                                 style={{
                                     display: 'block',
                                     margin: '5px auto',
@@ -317,7 +321,7 @@ export default function CelebrationPage() {
                     onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
                 />
 
-                {/* Status message - inline */}
+                {/* Status message */}
                 {statusMessage && (
                     <p style={{
                         color: 'white',
