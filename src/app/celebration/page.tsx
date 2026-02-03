@@ -87,7 +87,17 @@ export default function CelebrationPage() {
     };
 
     const handleSubmit = async () => {
-        if ((thought.trim() || selectedReaction || uploadedImage) && !sending) {
+        // Require both message and emoji
+        if (!thought.trim()) {
+            setStatusMessage('❌ Please type a message!');
+            return;
+        }
+        if (!selectedReaction) {
+            setStatusMessage('❌ Please select an emoji reaction!');
+            return;
+        }
+
+        if (!sending) {
             setSending(true);
             setStatusMessage('💕 Sending your message... please wait');
 
